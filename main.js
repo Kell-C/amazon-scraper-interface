@@ -93,7 +93,7 @@ async function fetchProducts(keyword) {
     hideError();
 
     const response = await fetch(
-      `amazon-scraper-production-9ec4.up.railway.app/api/scrape?keyword=${encodeURIComponent(
+      `https://amazon-scraper-production-9ec4.up.railway.app/api/scrape/api/scrape?keyword=${encodeURIComponent(
         keyword
       )}`
     );
