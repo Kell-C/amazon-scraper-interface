@@ -4,7 +4,7 @@ const searchButton = document.getElementById("searchButton");
 const resultsContainer = document.getElementById("resultsContainer");
 const loadingIndicator = document.getElementById("loadingIndicator");
 
-// Funções auxiliares (colocar no início)
+// Funções auxiliares
 function validateKeyword(keyword) {
   if (!keyword.trim()) {
     showError("Por favor, digite um termo de busca");
@@ -36,29 +36,38 @@ function hideError() {
   if (errorElement) errorElement.remove();
 }
 
-// Função para garantir URLs válidos da Amazon
+// Função aprimorada para garantir URLs válidos da Amazon
 function getAmazonProductLink(link, asin) {
-  // Se já for um link completo da Amazon
-  if (link && link.includes('amazon.com')) {
+  // Se o link já estiver correto
+  if (link && (link.startsWith('https://www.amazon.com/') || link.startsWith('http://www.amazon.com/'))) {
     try {
       const url = new URL(link);
-      // Remove parâmetros de tracking e mantém apenas o pathname
-      return `https://www.amazon.com${url.pathname}`;
+      // Remove parâmetros de tracking e mantém apenas o caminho principal
+      const cleanPath = url.pathname.split('/ref=')[0];
+      return `https://www.amazon.com${cleanPath}`;
     } catch {
-      // Se falhar ao criar URL, usa o ASIN como fallback
+      // Se falhar ao criar URL, continua para os fallbacks
     }
   }
   
-  // Se não tiver link mas tiver ASIN
-  if (asin) {
+  // Se tiver um ASIN válido
+  if (asin && asin.length === 10) { // ASINs da Amazon têm 10 caracteres
     return `https://www.amazon.com/dp/${asin}`;
   }
   
-  // Fallback caso não tenha nenhum dos dois
-  return '#';
+  // Se o link contiver /dp/ ou /gp/product/ mas não estiver completo
+  if (link && (link.includes('/dp/') || link.includes('/gp/product/'))) {
+    const match = link.match(/(\/dp\/[A-Z0-9]{10}|\/gp\/product\/[A-Z0-9]{10})/);
+    if (match) {
+      return `https://www.amazon.com${match[0]}`;
+    }
+  }
+  
+  // Fallback seguro
+  return 'https://www.amazon.com';
 }
 
-// Função para exibir produtos (versão corrigida)
+// Função para exibir produtos
 function displayProducts(products) {
   if (!products || products.length === 0) {
     resultsContainer.innerHTML =
@@ -67,46 +76,48 @@ function displayProducts(products) {
   }
 
   resultsContainer.innerHTML = products
-    .map(
-      (product) => {
-        // Corrige o link do produto
-        const productLink = getAmazonProductLink(product.link, product.asin);
-        
-        return `
-          <div class="product-card" data-asin="${product.asin || ''}">
-            <div class="product-image">
-              <img src="${product.imageUrl || "placeholder.jpg"}" alt="${
-                product.title || "Produto sem nome"
-              }" loading="lazy">
-            </div>
-            <div class="product-info">
-              <h3 class="product-title">${product.title || "Produto sem nome"}</h3>
-              <div class="product-price">${
-                product.price || "Preço não disponível"
-              }</div>
-              ${
-                product.rating
-                  ? `
-                <div class="product-rating">
-                  ⭐ ${product.rating}
-                  ${
-                    product.reviewCount ? `<span>(${product.reviewCount})</span>` : ""
-                  }
-                </div>
-              `
-                  : ""
-              }
-              <a href="${productLink}" 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 class="product-link">
-                Ver na Amazon
-              </a>
-            </div>
+    .map((product) => {
+      // Obtém o ASIN do atributo data-asin ou extrai do link se existir
+      const asin = product.asin || 
+                   (product.link ? product.link.match(/(\/dp\/|\/gp\/product\/)([A-Z0-9]{10})/)?.[2] : null);
+      
+      // Corrige o link do produto
+      const productLink = getAmazonProductLink(product.link, asin);
+      
+      return `
+        <div class="product-card" data-asin="${asin || ''}">
+          <div class="product-image">
+            <img src="${product.imageUrl || "placeholder.jpg"}" alt="${
+              product.title || "Produto sem nome"
+            }" loading="lazy">
           </div>
-        `;
-      }
-    )
+          <div class="product-info">
+            <h3 class="product-title">${product.title || "Produto sem nome"}</h3>
+            <div class="product-price">${
+              product.price || "Preço não disponível"
+            }</div>
+            ${
+              product.rating
+                ? `
+              <div class="product-rating">
+                ⭐ ${product.rating}
+                ${
+                  product.reviewCount ? `<span>(${product.reviewCount})</span>` : ""
+                }
+              </div>
+            `
+                : ""
+            }
+            <a href="${productLink}" 
+               target="_blank" 
+               rel="noopener noreferrer nofollow"
+               class="product-link">
+              Ver na Amazon
+            </a>
+          </div>
+        </div>
+      `;
+    })
     .join("");
 }
 
@@ -129,14 +140,14 @@ async function fetchProducts(keyword) {
     const data = await response.json();
     displayProducts(data.products || data);
   } catch (error) {
-    showError(error.message);
+    showError("Falha ao buscar produtos. " + error.message);
     console.error("Error:", error);
   } finally {
     toggleLoading(false);
   }
 }
 
-// Event Listeners (colocar no final)
+// Event Listeners
 searchButton.addEventListener("click", () => {
   const keyword = keywordInput.value.trim();
   if (validateKeyword(keyword)) fetchProducts(keyword);
