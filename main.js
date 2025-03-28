@@ -36,7 +36,29 @@ function hideError() {
   if (errorElement) errorElement.remove();
 }
 
-// Função para exibir produtos
+// Função para garantir URLs válidos da Amazon
+function getAmazonProductLink(link, asin) {
+  // Se já for um link completo da Amazon
+  if (link && link.includes('amazon.com')) {
+    try {
+      const url = new URL(link);
+      // Remove parâmetros de tracking e mantém apenas o pathname
+      return `https://www.amazon.com${url.pathname}`;
+    } catch {
+      // Se falhar ao criar URL, usa o ASIN como fallback
+    }
+  }
+  
+  // Se não tiver link mas tiver ASIN
+  if (asin) {
+    return `https://www.amazon.com/dp/${asin}`;
+  }
+  
+  // Fallback caso não tenha nenhum dos dois
+  return '#';
+}
+
+// Função para exibir produtos (versão corrigida)
 function displayProducts(products) {
   if (!products || products.length === 0) {
     resultsContainer.innerHTML =
@@ -46,42 +68,44 @@ function displayProducts(products) {
 
   resultsContainer.innerHTML = products
     .map(
-      (product) => `
-    <div class="product-card">
-      <div class="product-image">
-        <img src="${product.imageUrl || "placeholder.jpg"}" alt="${
-        product.title || "Produto sem nome"
-      }" loading="lazy">
-      </div>
-      <div class="product-info">
-        <h3 class="product-title">${product.title || "Produto sem nome"}</h3>
-        <div class="product-price">${
-          product.price || "Preço não disponível"
-        }</div>
-        ${
-          product.rating
-            ? `
-          <div class="product-rating">
-            ⭐ ${product.rating}
-            ${
-              product.reviewCount ? `<span>(${product.reviewCount})</span>` : ""
-            }
+      (product) => {
+        // Corrige o link do produto
+        const productLink = getAmazonProductLink(product.link, product.asin);
+        
+        return `
+          <div class="product-card" data-asin="${product.asin || ''}">
+            <div class="product-image">
+              <img src="${product.imageUrl || "placeholder.jpg"}" alt="${
+                product.title || "Produto sem nome"
+              }" loading="lazy">
+            </div>
+            <div class="product-info">
+              <h3 class="product-title">${product.title || "Produto sem nome"}</h3>
+              <div class="product-price">${
+                product.price || "Preço não disponível"
+              }</div>
+              ${
+                product.rating
+                  ? `
+                <div class="product-rating">
+                  ⭐ ${product.rating}
+                  ${
+                    product.reviewCount ? `<span>(${product.reviewCount})</span>` : ""
+                  }
+                </div>
+              `
+                  : ""
+              }
+              <a href="${productLink}" 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 class="product-link">
+                Ver na Amazon
+              </a>
+            </div>
           </div>
-        `
-            : ""
-        }
-        ${
-          product.link
-            ? `
-          <a href="${product.link}" target="_blank" class="product-link">
-            Ver na Amazon
-          </a>
-        `
-            : ""
-        }
-      </div>
-    </div>
-  `
+        `;
+      }
     )
     .join("");
 }
